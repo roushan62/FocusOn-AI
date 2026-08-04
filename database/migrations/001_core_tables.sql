@@ -27,6 +27,9 @@ CREATE POLICY "Users can view their company" ON companies
 CREATE POLICY "Users can update their company" ON companies
   FOR UPDATE USING (auth.uid() = id);
 
+CREATE POLICY "Enable insert for all users" ON companies
+  FOR INSERT WITH CHECK (true);
+
 -- Clients table
 CREATE TABLE clients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
