@@ -1,6 +1,55 @@
-# FocusOn AI — AI Interior Fit-Out ERP
+# FocusOn AI — AI Interior Fit-Out ERP + Meeting Intelligence (FOI-MeetAI)
 
 FocusOn AI is a fast, open-workspace **Construction Copilot** for commercial interior fit-out teams. It brings estimating, procurement, site execution, documents, accounts and AI assistance into one Vercel-ready Next.js app.
+
+## ⭐ New: FOI-MeetAI — AI Meeting Assistant & MOM Automation
+
+A Chrome Extension (MV3) + this backend that joins your browser meetings, transcribes
+Hindi/English/Hinglish in real time, and auto-generates **verified, professional
+Minutes of Meeting straight into Google Sheets**.
+
+- 🎙️ **Google Meet · Zoom Web · MS Teams Web** — auto-detected, per-platform DOM adapters
+- 🔁 **Multi-provider engine** — 6 STT + 7 LLM providers (Groq, Gemini, Deepgram,
+  AssemblyAI, OpenAI, Anthropic, OpenRouter, DeepSeek, Google STT, Ollama/local)
+  with automatic silent failover; free tiers are enough, nothing ever hard-fails on one key
+- 🛡️ **Accuracy gate** — every MOM line carries a transcript `sourceTimestamp` +
+  `sourceQuote`; an independent second-model verification pass drops or ⚠️-flags
+  anything unsupported; inferred dates and unknown speakers are labelled, never invented
+- 📊 **Output** — formatted Google Sheet tab (`MOM_<Project>_<DDMMYY>`) with navy/gold
+  FocusOn branding, conditional-format action items, hidden raw-transcript tab,
+  plus a branded **PDF** and an auto-drafted (never auto-sent) **Gmail** email
+- 🔌 **Zero-config** — one-time settings wizard in the extension; non-technical
+  users never touch code again
+
+| | |
+|---|---|
+| 👤 Non-technical setup guide | [docs/SETUP.md](docs/SETUP.md) |
+| 🧭 Architecture | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 🔑 Providers & fallback | [docs/PROVIDERS.md](docs/PROVIDERS.md) |
+| ✅ Accuracy policy | [docs/ACCURACY.md](docs/ACCURACY.md) |
+| 📋 Sheet template spec | [docs/SHEETS_TEMPLATE.md](docs/SHEETS_TEMPLATE.md) |
+| 🚀 Deployment | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| 🧪 Testing & hardening | [docs/TESTING.md](docs/TESTING.md) |
+| 🧠 Every design decision | [DECISIONS.md](DECISIONS.md) |
+| 🧩 Extension internals | [extension/README.md](extension/README.md) |
+
+**Quick start:** deploy this repo to Vercel → open `docs/SETUP.md` → 20 minutes
+later, Stopping any meeting produces a Sheet + PDF + Gmail draft automatically.
+Meeting history and provider health appear in the app's new **Meetings** section
+(`/meetings`).
+
+## Repository layout
+
+```
+app/                  Next.js app (ERP + /api/* meeting pipeline + /meetings UI)
+extension/            FOI-MeetAI Chrome extension (MV3, plain JS)
+lib/meetai/           Provider router, 13 provider clients, prompts/accuracy
+                      policy, Sheets/Gmail/PDF writers, vault, store
+docs/                 Setup, architecture, providers, accuracy, templates
+database/migrations/  001–006 ERP schema + 007 meeting-intelligence tables
+tools/make-icons.mjs  Zero-dependency brand icon generator
+DECISIONS.md          Why things are built the way they are
+```
 
 ## What works
 

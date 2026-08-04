@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>FOI-MeetAI</title>
+  <style>
+    :root { --navy:#1A1F5C; --gold:#C9A227; --ink:#1e293b; --muted:#64748b; }
+    * { box-sizing: border-box; }
+    body { width: 380px; margin: 0; font-family: Arial, Helvetica, sans-serif; color: var(--ink); background:#fff; }
+    header { background: var(--navy); color: #fff; padding: 12px 16px; display:flex; align-items:center; gap:10px; }
+    header img { width: 28px; height: 28px; border-radius: 6px; }
+    header .t { font-weight: bold; font-size: 14px; letter-spacing:.2px; }
+    header .s { font-size: 10px; opacity:.75; letter-spacing: 1.2px; text-transform: uppercase; }
+    main { padding: 14px 16px 18px; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .col { display:flex; flex-direction:column; gap:8px; }
+    label { font-size: 11px; font-weight:bold; color: var(--muted); text-transform: uppercase; letter-spacing:.6px; }
+    input, select, textarea { width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; font-family:inherit; }
+    input:focus, select:focus { outline:2px solid var(--gold); border-color: var(--gold); }
+    button { cursor:pointer; border:none; border-radius:8px; font-weight:bold; font-size:13px; padding:9px 12px; font-family:inherit; }
+    .primary { background: var(--navy); color:#fff; }
+    .primary:hover { background:#141849; }
+    .danger { background:#dc2626; color:#fff; }
+    .ghost { background:#e2e8f0; color:var(--ink); }
+    .gold { background: var(--gold); color:#1a1a1a; }
+    .block { width:100%; }
+    .status { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:#f1f5f9; margin-bottom:12px; }
+    .dot { width:10px; height:10px; border-radius:50%; flex:none; }
+    .dot.rec { background:#dc2626; animation: pulse 1.2s infinite; }
+    .dot.proc { background:#d97706; animation: pulse 1s infinite; }
+    .dot.ok { background:#059669; }
+    .dot.idle { background:#94a3b8; }
+    .dot.err { background:#dc2626; }
+    @keyframes pulse { 50% { opacity:.35; } }
+    .status .big { font-weight:bold; font-size:13px; }
+    .status .small { font-size:11px; color:var(--muted); }
+    .roster { max-height:180px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; }
+    .roster table { width:100%; border-collapse:collapse; font-size:12px; }
+    .roster th { text-align:left; font-size:10px; text-transform:uppercase; color:var(--muted); padding:6px 8px; background:#f8fafc; position:sticky; top:0; }
+    .roster td { padding:4px 6px; border-top:1px solid #f1f5f9; }
+    .roster input, .roster select { padding:4px 6px; font-size:12px; border-radius:6px; }
+    .links a { display:block; padding:9px 12px; border-radius:8px; margin-bottom:6px; background:#f0fdf4; color:#166534; font-weight:bold; font-size:13px; text-decoration:none; }
+    .links a.gold { background:#fef9e7; color:#92690f; }
+    .hint { font-size:11px; color:var(--muted); line-height:1.5; }
+    .err { background:#fef2f2; color:#b91c1c; font-size:12px; padding:8px 10px; border-radius:8px; margin-top:8px; word-break:break-word; }
+    .footer { margin-top:12px; display:flex; justify-content:space-between; align-items:center; }
+    .footer a { font-size:11px; color:var(--navy); font-weight:bold; text-decoration:none; }
+    details { margin-top:8px; }
+    summary { cursor:pointer; font-size:11px; color:var(--muted); }
+    pre.log { max-height:140px; overflow:auto; background:#0f172a; color:#94a3b8; font-size:10px; padding:8px; border-radius:8px; white-space:pre-wrap; word-break:break-all; }
+    .timer { font-variant-numeric: tabular-nums; font-weight:bold; }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="../icons/icon48.png" alt="" />
+    <div>
+      <div class="t">FocusOn Meeting Intelligence</div>
+      <div class="s">AI Meeting Assistant · MOM Automation</div>
+    </div>
+  </header>
+  <main>
+    <div class="status" id="statusBox">
+      <span class="dot idle" id="statusDot"></span>
+      <div>
+        <div class="big" id="statusTitle">Ready</div>
+        <div class="small" id="statusDetail">Open a Google Meet, Zoom or Teams call in this tab.</div>
+      </div>
+    </div>
+
+    <div class="col" id="setupBox">
+      <div>
+        <label for="projectName">Project / client</label>
+        <input id="projectName" placeholder="e.g. Sodexo — Gurugram Office Fit-out" />
+      </div>
+      <div>
+        <label>Who's who <span style="text-transform:none;font-weight:normal">(10-second tag — optional but improves accuracy)</span></label>
+        <div class="roster"><table>
+          <thead><tr><th>Name</th><th>Role</th><th>Org</th></tr></thead>
+          <tbody id="rosterBody"></tbody>
+        </table></div>
+      </div>
+      <div class="row">
+        <button class="ghost" id="addPersonBtn">+ Add person</button>
+        <button class="ghost" id="scanBtn">↻ Scan call participants</button>
+      </div>
+      <button class="primary block" id="startBtn">● Start Meeting Assistant</button>
+      <p class="hint">Records this tab's audio, transcribes live (Hindi/English/Hinglish) with
+      automatic fallback across your AI providers, and on Stop writes a verified
+      Minutes of Meeting into your Google Sheet.</p>
+    </div>
+
+    <div class="col" id="recordingBox" hidden>
+      <div class="row" style="justify-content:space-between">
+        <span class="timer" id="timer">00:00</span>
+        <span class="hint" id="segCount">0 lines captured</span>
+      </div>
+      <button class="danger block" id="stopBtn">■ Stop &amp; Generate MOM</button>
+    </div>
+
+    <div class="col" id="processingBox" hidden>
+      <p class="hint">Generating MOM… extraction → independent verification → Google Sheet → PDF → Gmail draft.</p>
+    </div>
+
+    <div class="col links" id="resultBox" hidden></div>
+    <div class="err" id="errorBox" hidden></div>
+
+    <div class="footer">
+      <a href="#" id="optionsLink">⚙ Settings &amp; Provider Keys</a>
+      <a href="#" id="debugLink">debug log</a>
+    </div>
+    <details id="debugBox" hidden><summary>provider / pipeline log</summary><pre class="log" id="debugLog"></pre></details>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
