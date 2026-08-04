@@ -26,6 +26,7 @@ export default function PurchasePage() {
     notes: "",
     expected_delivery: "",
   });
+  const [error, setError] = useState("");
 
   const fetchPOs = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -41,6 +42,7 @@ export default function PurchasePage() {
 
   useEffect(() => {
     fetchPOs();
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("new") === "1") setShowForm(true);
     const loadData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -57,13 +59,18 @@ export default function PurchasePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
 
     const { count } = await supabase.from("purchase_orders").select("*", { count: "exact", head: true }).eq("company_id", user.id);
     const poNumber = generateNumber("PO", count || 0);
 
-    await supabase.from("purchase_orders").insert({
+    const { error: insertError } = await supabase.from("purchase_orders").insert({
       company_id: user.id,
       project_id: form.project_id,
       vendor_id: form.vendor_id,
@@ -71,6 +78,12 @@ export default function PurchasePage() {
       notes: form.notes || null,
       expected_delivery: form.expected_delivery || null,
     });
+
+    if (insertError) {
+      setError(insertError.message || "Could not create the purchase order.");
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setShowForm(false);
@@ -98,8 +111,10 @@ export default function PurchasePage() {
           <h1 className="text-2xl font-bold text-gray-900">Purchase Orders</h1>
           <p className="text-sm text-gray-500">{pos.length} purchase orders</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>+ New PO</Button>
+        <Button onClick={() => { setError(""); setShowForm(true); }}>+ New PO</Button>
       </div>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {pos.length === 0 ? (
         <Card><div className="py-12 text-center"><p className="text-gray-500">No purchase orders yet.</p></div></Card>

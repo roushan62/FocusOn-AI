@@ -18,6 +18,7 @@ export default function VendorsMaterialsPage() {
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [vendorForm, setVendorForm] = useState({
     name: "", contact_person: "", email: "", phone: "", address: "", gst_number: "", category: "", rating: "3",
   });
@@ -43,9 +44,19 @@ export default function VendorsMaterialsPage() {
   const handleAddVendor = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from("vendors").insert({ company_id: user.id, ...vendorForm, rating: parseInt(vendorForm.rating) });
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
+    const { error: insertError } = await supabase.from("vendors").insert({ company_id: user.id, ...vendorForm, rating: parseInt(vendorForm.rating, 10) });
+    if (insertError) {
+      setError(insertError.message || "Could not add the vendor.");
+      setSaving(false);
+      return;
+    }
     setSaving(false);
     setShowVendorForm(false);
     setVendorForm({ name: "", contact_person: "", email: "", phone: "", address: "", gst_number: "", category: "", rating: "3" });
@@ -55,9 +66,19 @@ export default function VendorsMaterialsPage() {
   const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from("materials").insert({ company_id: user.id, ...materialForm });
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
+    const { error: insertError } = await supabase.from("materials").insert({ company_id: user.id, ...materialForm });
+    if (insertError) {
+      setError(insertError.message || "Could not add the material.");
+      setSaving(false);
+      return;
+    }
     setSaving(false);
     setShowMaterialForm(false);
     setMaterialForm({ name: "", category: "", unit: "sqft", description: "" });
@@ -72,6 +93,8 @@ export default function VendorsMaterialsPage() {
         <h1 className="text-2xl font-bold text-gray-900">Vendors & Materials</h1>
         <p className="text-sm text-gray-500">Manage your vendors and material database</p>
       </div>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <div className="flex gap-2 border-b">
         <button
@@ -126,7 +149,7 @@ export default function VendorsMaterialsPage() {
           <Modal open={showVendorForm} onClose={() => setShowVendorForm(false)} title="Add Vendor">
             <form onSubmit={handleAddVendor} className="space-y-4">
               <Input label="Vendor Name" value={vendorForm.name} onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })} required />
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Input label="Contact Person" value={vendorForm.contact_person} onChange={(e) => setVendorForm({ ...vendorForm, contact_person: e.target.value })} />
                 <Input label="Phone" value={vendorForm.phone} onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })} />
               </div>

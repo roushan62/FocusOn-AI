@@ -19,9 +19,7 @@ export function generateQuotationHTML(
 
   const subtotal = items.reduce((s, i) => s + i.amount, 0);
   const profitMargin = (subtotal * (quotation.profit_margin_percent || 0)) / 100;
-  const afterProfit = subtotal + profitMargin;
   const discount = quotation.discount_amount || 0;
-  const afterDiscount = afterProfit - discount;
   const gst = quotation.gst_amount || 0;
 
   return `<!DOCTYPE html>

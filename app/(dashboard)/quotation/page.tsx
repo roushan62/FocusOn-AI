@@ -27,6 +27,7 @@ export default function QuotationPage() {
     profit_margin_percent: "15",
     valid_until: "",
   });
+  const [error, setError] = useState("");
 
   const fetchQuotations = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -42,6 +43,7 @@ export default function QuotationPage() {
 
   useEffect(() => {
     fetchQuotations();
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("new") === "1") setShowForm(true);
     const loadData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -58,8 +60,13 @@ export default function QuotationPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
 
     // Calculate totals from BOQ items
     let subtotal = 0;
@@ -69,7 +76,7 @@ export default function QuotationPage() {
         .select("amount, labour_amount")
         .eq("boq_id", form.boq_id);
       subtotal = (items || []).reduce(
-        (sum, i) => sum + (i.amount || 0) + (i.labour_amount || 0), 0
+        (sum, i) => sum + Number(i.amount || 0) + Number(i.labour_amount || 0), 0
       );
     }
 
@@ -83,7 +90,7 @@ export default function QuotationPage() {
     const { count } = await supabase.from("quotations").select("*", { count: "exact", head: true }).eq("company_id", user.id);
     const qNumber = generateNumber("QTN", count || 0);
 
-    await supabase.from("quotations").insert({
+    const { error: insertError } = await supabase.from("quotations").insert({
       company_id: user.id,
       project_id: form.project_id,
       boq_id: form.boq_id || null,
@@ -97,6 +104,12 @@ export default function QuotationPage() {
       grand_total: grandTotal,
       valid_until: form.valid_until || null,
     });
+
+    if (insertError) {
+      setError(insertError.message || "Could not create the quotation.");
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setShowForm(false);
@@ -113,8 +126,10 @@ export default function QuotationPage() {
           <h1 className="text-2xl font-bold text-gray-900">Quotations</h1>
           <p className="text-sm text-gray-500">{quotations.length} quotations</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>+ New Quotation</Button>
+        <Button onClick={() => { setError(""); setShowForm(true); }}>+ New Quotation</Button>
       </div>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {quotations.length === 0 ? (
         <Card><div className="py-12 text-center"><p className="text-gray-500">No quotations yet.</p></div></Card>
@@ -157,7 +172,7 @@ export default function QuotationPage() {
             onChange={(e) => setForm({ ...form, boq_id: e.target.value })}
             options={boqs.map((b) => ({ value: b.id, label: b.title }))}
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Discount %" type="number" value={form.discount_percent} onChange={(e) => setForm({ ...form, discount_percent: e.target.value })} />
             <Input label="Profit Margin %" type="number" value={form.profit_margin_percent} onChange={(e) => setForm({ ...form, profit_margin_percent: e.target.value })} />
           </div>

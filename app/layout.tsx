@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FocusOn AI — Construction Copilot",
-  description: "AI Interior Fit-Out ERP for commercial fit-out companies",
+  title: "FocusOn AI — Interior Fit-Out OS",
+  description: "Fast AI construction copilot and ERP workspace for commercial interior fit-out teams.",
+  applicationName: "FocusOn AI",
+  keywords: ["interior fit-out", "BOQ", "construction ERP", "quotation", "site report", "procurement"],
 };
 
 export default function RootLayout({

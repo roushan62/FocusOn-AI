@@ -16,6 +16,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({ material_id: "", quantity_received: "0", quantity_consumed: "0", unit: "" });
 
   const fetchData = async () => {
@@ -36,18 +37,36 @@ export default function InventoryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
 
     const material = materials.find((m) => m.id === form.material_id);
+    const received = Number(form.quantity_received);
+    const consumed = Number(form.quantity_consumed);
+    if (!material || !Number.isFinite(received) || !Number.isFinite(consumed) || received < 0 || consumed < 0) {
+      setError("Choose a material and enter valid non-negative quantities.");
+      setSaving(false);
+      return;
+    }
 
-    await supabase.from("inventory").insert({
+    const { error: insertError } = await supabase.from("inventory").insert({
       company_id: user.id,
       material_id: form.material_id,
-      quantity_received: parseFloat(form.quantity_received),
-      quantity_consumed: parseFloat(form.quantity_consumed),
-      unit: form.unit || material?.unit || "sqft",
+      quantity_received: received,
+      quantity_consumed: consumed,
+      unit: form.unit || material.unit || "sqft",
     });
+
+    if (insertError) {
+      setError(insertError.message || "Could not add the stock entry.");
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setShowForm(false);
@@ -66,8 +85,10 @@ export default function InventoryPage() {
           <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
           <p className="text-sm text-gray-500">{inventory.length} items</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>+ Add Stock</Button>
+        <Button onClick={() => { setError(""); setShowForm(true); }}>+ Add Stock</Button>
       </div>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {lowStock.length > 0 && (
         <Card className="border-l-4 border-l-red-500 bg-red-50">
@@ -125,7 +146,7 @@ export default function InventoryPage() {
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Stock Entry">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Select label="Material" value={form.material_id} onChange={(e) => { const m = materials.find((x) => x.id === e.target.value); setForm({ ...form, material_id: e.target.value, unit: m?.unit || "" }); }} options={materials.map((m) => ({ value: m.id, label: m.name }))} required />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Quantity Received" type="number" step="0.01" value={form.quantity_received} onChange={(e) => setForm({ ...form, quantity_received: e.target.value })} />
             <Input label="Quantity Consumed" type="number" step="0.01" value={form.quantity_consumed} onChange={(e) => setForm({ ...form, quantity_consumed: e.target.value })} />
           </div>

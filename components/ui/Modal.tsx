@@ -10,21 +10,21 @@ interface ModalProps {
   size?: "sm" | "md" | "lg";
 }
 
-export function Modal({
-  open,
-  onClose,
-  title,
-  children,
-  size = "md",
-}: ModalProps) {
+export function Modal({ open, onClose, title, children, size = "md" }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    if (!open) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
     };
-    if (open) document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
+    document.addEventListener("keydown", handleEscape);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = previousOverflow;
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -34,32 +34,25 @@ export function Modal({
     md: "max-w-lg",
     lg: "max-w-2xl",
   };
+  const titleId = "focuson-modal-title";
 
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
+      role="presentation"
+      className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-[2px] sm:items-center"
+      onMouseDown={(event) => {
+        if (event.target === overlayRef.current) onClose();
       }}
     >
-      <div
-        className={`w-full ${sizes[size]} rounded-xl bg-white shadow-xl animate-in fade-in zoom-in`}
-      >
+      <div role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} className={`modal-panel my-auto w-full ${sizes[size]} overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl`}>
         {title && (
-          <div className="flex items-center justify-between border-b px-6 py-4">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <button
-              onClick={onClose}
-              className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+            <h3 id={titleId} className="text-lg font-bold tracking-tight text-slate-950">{title}</h3>
+            <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-lg p-1.5 text-xl leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700">×</button>
           </div>
         )}
-        <div className="p-6">{children}</div>
+        <div className="max-h-[calc(100vh-6rem)] overflow-y-auto p-5 sm:p-6">{children}</div>
       </div>
     </div>
   );

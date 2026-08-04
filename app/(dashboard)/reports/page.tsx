@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
 import { Loading } from "@/components/ui/Loading";
 import { formatCurrency } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -19,7 +18,10 @@ export default function ReportsPage() {
   useEffect(() => {
     async function fetchReportData() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const [invRes, expRes, projRes] = await Promise.all([
         supabase.from("invoices").select("project_id,grand_total,amount_paid,status").eq("company_id", user.id),
@@ -31,25 +33,33 @@ export default function ReportsPage() {
       const invoices = invRes.data || [];
       const expenses = expRes.data || [];
 
-      // Per-project breakdown
-      const projBreakdown = projects.map((p) => {
-        const revenue = invoices.filter((i) => i.project_id === p.id).reduce((s, i) => s + (i.grand_total || 0), 0);
-        const exp = expenses.filter((e) => e.project_id === p.id).reduce((s, e) => s + e.amount, 0);
-        return { name: p.name, revenue, expenses: exp };
+      // Aggregate once instead of filtering every invoice/expense for every project.
+      const revenueByProject: Record<string, number> = {};
+      invoices.forEach((invoice) => {
+        revenueByProject[invoice.project_id] = (revenueByProject[invoice.project_id] || 0) + Number(invoice.grand_total || 0);
       });
+      const expensesByProject: Record<string, number> = {};
+      expenses.forEach((expense) => {
+        expensesByProject[expense.project_id] = (expensesByProject[expense.project_id] || 0) + Number(expense.amount || 0);
+      });
+      const projBreakdown = projects.map((project) => ({
+        name: project.name,
+        revenue: revenueByProject[project.id] || 0,
+        expenses: expensesByProject[project.id] || 0,
+      }));
       setProjectData(projBreakdown);
 
       // Expense by category
       const catMap: Record<string, number> = {};
       expenses.forEach((e) => {
-        catMap[e.category] = (catMap[e.category] || 0) + e.amount;
+        catMap[e.category] = (catMap[e.category] || 0) + Number(e.amount || 0);
       });
       setExpensesByCategory(Object.entries(catMap).map(([name, value]) => ({ name, value })));
 
       // Totals
-      const totalRev = invoices.reduce((s, i) => s + (i.grand_total || 0), 0);
-      const totalExp = expenses.reduce((s, e) => s + e.amount, 0);
-      const outstanding = invoices.filter((i) => i.status !== "paid").reduce((s, i) => s + ((i.grand_total || 0) - (i.amount_paid || 0)), 0);
+      const totalRev = invoices.reduce((s, i) => s + Number(i.grand_total || 0), 0);
+      const totalExp = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+      const outstanding = invoices.filter((i) => i.status !== "paid").reduce((s, i) => s + Math.max(0, Number(i.grand_total || 0) - Number(i.amount_paid || 0)), 0);
       setTotals({ revenue: totalRev, expenses: totalExp, outstanding });
 
       setLoading(false);
@@ -66,7 +76,7 @@ export default function ReportsPage() {
         <p className="text-sm text-gray-500">Business analytics and reports</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card><p className="text-sm text-gray-500">Total Revenue</p><p className="text-2xl font-bold text-blue-600">{formatCurrency(totals.revenue)}</p></Card>
         <Card><p className="text-sm text-gray-500">Total Expenses</p><p className="text-2xl font-bold text-red-600">{formatCurrency(totals.expenses)}</p></Card>
         <Card><p className="text-sm text-gray-500">Outstanding</p><p className="text-2xl font-bold text-orange-600">{formatCurrency(totals.outstanding)}</p></Card>
@@ -109,7 +119,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Quick Reports */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card title="Project Profitability">
           {projectData.length > 0 ? (
             <table className="w-full text-sm">

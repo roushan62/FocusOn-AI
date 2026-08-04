@@ -25,6 +25,7 @@ export default function PODetailPage() {
   const [itemForm, setItemForm] = useState({
     description: "", unit: "sqft", quantity: "", rate: "",
   });
+  const [error, setError] = useState("");
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -49,18 +50,33 @@ export default function PODetailPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const syncHeaderTotals = async () => {
+    if (!id) return;
+    const { data: lineItems } = await supabase.from("po_line_items").select("amount").eq("po_id", id);
+    const subtotal = (lineItems || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const gstAmount = subtotal * 0.18;
+    await supabase.from("purchase_orders").update({ subtotal, gst_amount: gstAmount, grand_total: subtotal + gstAmount }).eq("id", id);
+  };
+
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
 
-    await supabase.from("po_line_items").insert({
+    const { error: insertError } = await supabase.from("po_line_items").insert({
       po_id: id,
-      description: itemForm.description,
+      description: itemForm.description.trim(),
       unit: itemForm.unit,
       quantity: parseFloat(itemForm.quantity),
       rate: parseFloat(itemForm.rate),
     });
+    if (insertError) {
+      setError(insertError.message || "Could not add the line item.");
+      setSaving(false);
+      return;
+    }
 
+    await syncHeaderTotals();
     setSaving(false);
     setShowItemForm(false);
     setItemForm({ description: "", unit: "sqft", quantity: "", rate: "" });
@@ -68,8 +84,13 @@ export default function PODetailPage() {
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!confirm("Delete this item?")) return;
-    await supabase.from("po_line_items").delete().eq("id", itemId);
+    if (!window.confirm("Delete this item?")) return;
+    const { error: deleteError } = await supabase.from("po_line_items").delete().eq("id", itemId);
+    if (deleteError) {
+      setError(deleteError.message || "Could not delete the line item.");
+      return;
+    }
+    await syncHeaderTotals();
     fetchData();
   };
 
@@ -84,7 +105,7 @@ export default function PODetailPage() {
     fetchData();
   };
 
-  const totalAmount = items.reduce((s, i) => s + i.amount, 0);
+  const totalAmount = items.reduce((s, i) => s + Number(i.amount || 0), 0);
 
   if (loading) return <Loading size="lg" />;
   if (!po) return <div className="text-center py-12">Purchase Order not found.</div>;
@@ -116,6 +137,8 @@ export default function PODetailPage() {
           </Button>
         </div>
       </div>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <div className="grid gap-6 md:grid-cols-2">
         {vendor && (
@@ -195,7 +218,7 @@ export default function PODetailPage() {
       <Modal open={showItemForm} onClose={() => setShowItemForm(false)} title="Add Line Item">
         <form onSubmit={handleAddItem} className="space-y-4">
           <Input label="Description" value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} required />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Input label="Quantity" type="number" step="0.01" value={itemForm.quantity} onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })} required />
             <Select label="Unit" value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} options={[
               { value: "sqft", label: "Sq Ft" }, { value: "sqm", label: "Sq M" }, { value: "nos", label: "Numbers" }, { value: "rft", label: "Running Ft" },

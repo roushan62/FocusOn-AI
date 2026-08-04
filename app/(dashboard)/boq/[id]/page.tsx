@@ -31,11 +31,16 @@ export default function BOQDetailPage() {
     labour_amount: "",
     remarks: "",
   });
+  const [error, setError] = useState("");
 
   const fetchBOQ = useCallback(async () => {
     if (!id) return;
     const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) return;
+    if (!userData.user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setLoading(false);
+      return;
+    }
 
     const { data: boqData } = await supabase.from("boqs").select("*").eq("id", id).single();
     setBoq(boqData);
@@ -50,32 +55,30 @@ export default function BOQDetailPage() {
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
 
-    if (editingItem) {
-      await supabase.from("boq_line_items").update({
-        category: itemForm.category,
-        description: itemForm.description,
-        unit: itemForm.unit,
-        quantity: parseFloat(itemForm.quantity),
-        rate: parseFloat(itemForm.rate),
-        labour_rate: itemForm.labour_rate ? parseFloat(itemForm.labour_rate) : null,
-        labour_amount: itemForm.labour_amount ? parseFloat(itemForm.labour_amount) : null,
-        remarks: itemForm.remarks || null,
-      }).eq("id", editingItem.id);
-    } else {
-      await supabase.from("boq_line_items").insert({
-        boq_id: id,
-        category: itemForm.category,
-        description: itemForm.description,
-        unit: itemForm.unit,
-        quantity: parseFloat(itemForm.quantity),
-        rate: parseFloat(itemForm.rate),
-        labour_rate: itemForm.labour_rate ? parseFloat(itemForm.labour_rate) : null,
-        labour_amount: itemForm.labour_amount ? parseFloat(itemForm.labour_amount) : null,
-        remarks: itemForm.remarks || null,
-      });
+    const payload = {
+      category: itemForm.category,
+      description: itemForm.description.trim(),
+      unit: itemForm.unit,
+      quantity: parseFloat(itemForm.quantity),
+      rate: parseFloat(itemForm.rate),
+      labour_rate: itemForm.labour_rate ? parseFloat(itemForm.labour_rate) : null,
+      labour_amount: itemForm.labour_amount ? parseFloat(itemForm.labour_amount) : null,
+      remarks: itemForm.remarks || null,
+    };
+    const result = editingItem
+      ? await supabase.from("boq_line_items").update(payload).eq("id", editingItem.id)
+      : await supabase.from("boq_line_items").insert({ boq_id: id, ...payload });
+
+    if (result.error) {
+      setError(result.error.message || "Could not save the BOQ line item.");
+      setSaving(false);
+      return;
     }
 
+    // The database generates amount from quantity × rate. The local workspace
+    // mirrors that calculation in its query adapter.
     setSaving(false);
     setShowItemForm(false);
     setEditingItem(null);
@@ -84,13 +87,17 @@ export default function BOQDetailPage() {
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!confirm("Delete this line item?")) return;
-    await supabase.from("boq_line_items").delete().eq("id", itemId);
+    if (!window.confirm("Delete this line item?")) return;
+    const { error: deleteError } = await supabase.from("boq_line_items").delete().eq("id", itemId);
+    if (deleteError) {
+      setError(deleteError.message || "Could not delete the line item.");
+      return;
+    }
     fetchBOQ();
   };
 
-  const totalMaterial = items.reduce((s, i) => s + i.amount, 0);
-  const totalLabour = items.reduce((s, i) => s + (i.labour_amount || 0), 0);
+  const totalMaterial = items.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const totalLabour = items.reduce((s, i) => s + Number(i.labour_amount || 0), 0);
   const grandTotal = totalMaterial + totalLabour;
 
   if (loading) return <Loading size="lg" />;
@@ -111,8 +118,10 @@ export default function BOQDetailPage() {
         </Button>
       </div>
 
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <p className="text-sm text-gray-500">Material Total</p>
           <p className="text-2xl font-bold">{formatCurrency(totalMaterial)}</p>
@@ -204,7 +213,7 @@ export default function BOQDetailPage() {
       {/* Item Form Modal */}
       <Modal open={showItemForm} onClose={() => { setShowItemForm(false); setEditingItem(null); }} title={editingItem ? "Edit Line Item" : "Add Line Item"} size="lg">
         <form onSubmit={handleAddItem} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Select
               label="Category"
               value={itemForm.category}
@@ -239,11 +248,11 @@ export default function BOQDetailPage() {
             />
           </div>
           <Input label="Description" value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} required placeholder="e.g., 12mm Gypsum Board with framing" />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Quantity" type="number" step="0.01" value={itemForm.quantity} onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })} required />
             <Input label="Rate (₹)" type="number" step="0.01" value={itemForm.rate} onChange={(e) => setItemForm({ ...itemForm, rate: e.target.value })} required />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Labour Rate (₹)" type="number" step="0.01" value={itemForm.labour_rate} onChange={(e) => setItemForm({ ...itemForm, labour_rate: e.target.value })} />
             <Input label="Labour Amount (₹)" type="number" step="0.01" value={itemForm.labour_amount} onChange={(e) => setItemForm({ ...itemForm, labour_amount: e.target.value })} />
           </div>

@@ -28,6 +28,7 @@ export default function ClientsPage() {
     notes: "",
     status: "active" as "active" | "inactive",
   });
+  const [error, setError] = useState("");
 
   const fetchClients = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -43,21 +44,32 @@ export default function ClientsPage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchClients(); }, []);
+  useEffect(() => {
+    fetchClients();
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("new") === "1") setShowForm(true);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
 
     const payload = { ...form, company_id: user.id };
+    const result = editingClient
+      ? await supabase.from("clients").update(payload).eq("id", editingClient.id)
+      : await supabase.from("clients").insert(payload);
 
-    if (editingClient) {
-      await supabase.from("clients").update(payload).eq("id", editingClient.id);
-    } else {
-      await supabase.from("clients").insert(payload);
+    if (result.error) {
+      setError(result.error.message || "Could not save the client.");
+      setSaving(false);
+      return;
     }
 
     setSaving(false);
@@ -102,6 +114,8 @@ export default function ClientsPage() {
         </Button>
       </div>
 
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
       {clients.length === 0 ? (
         <Card>
           <div className="py-12 text-center">
@@ -111,28 +125,22 @@ export default function ClientsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {clients.map((client) => (
-            <Link key={client.id} href={`/clients/${client.id}`}>
-              <Card className="cursor-pointer transition-shadow hover:shadow-md">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">{client.name}</h3>
-                    <StatusBadge status={client.status} />
-                  </div>
-                  {client.contact_person && (
-                    <p className="text-sm text-gray-600">{client.contact_person}</p>
-                  )}
-                  {client.phone && (
-                    <p className="text-sm text-gray-500">{client.phone}</p>
-                  )}
-                  {client.email && (
-                    <p className="text-sm text-gray-500">{client.email}</p>
-                  )}
-                  <p className="text-xs text-gray-400">
-                    Added {formatDate(client.created_at)}
-                  </p>
+            <Card key={client.id} className="border-slate-200 transition-shadow hover:shadow-md">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Link href={`/clients/${client.id}`} className="min-w-0 truncate font-semibold text-slate-950 hover:text-sky-700">{client.name}</Link>
+                  <StatusBadge status={client.status} />
                 </div>
-              </Card>
-            </Link>
+                {client.contact_person && <p className="text-sm text-slate-600">{client.contact_person}</p>}
+                {client.phone && <p className="text-sm text-slate-500">{client.phone}</p>}
+                {client.email && <p className="truncate text-sm text-slate-500">{client.email}</p>}
+                <p className="text-xs text-slate-400">Added {formatDate(client.created_at)}</p>
+                <div className="flex gap-3 border-t border-slate-100 pt-3 text-xs font-semibold">
+                  <Link href={`/clients/${client.id}`} className="text-sky-700 hover:text-sky-900">View details →</Link>
+                  <button type="button" onClick={() => handleEdit(client)} className="text-slate-500 hover:text-slate-900">Edit</button>
+                </div>
+              </div>
+            </Card>
           ))}
         </div>
       )}
@@ -140,7 +148,7 @@ export default function ClientsPage() {
       <Modal open={showForm} onClose={() => { setShowForm(false); setEditingClient(null); }} title={editingClient ? "Edit Client" : "Add Client"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input label="Client Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Contact Person" value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
             <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           </div>
