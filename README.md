@@ -1,6 +1,13 @@
-# FocusOn AI — AI Interior Fit-Out ERP
+# FocusOn AI — AI Interior Fit-Out ERP (No-Signup Open Concept)
 
-A production-grade **AI Interior Fit-Out ERP** (Construction Copilot) for commercial interior fit-out companies. Built with Next.js 14+, TypeScript, Tailwind CSS, Supabase, and Groq AI.
+A production-grade **AI Interior Fit-Out ERP** (Construction Copilot) for commercial interior fit-out companies. Built with Next.js 16+, TypeScript, Tailwind CSS, and AI Copilot capabilities.
+
+## ✨ Why "No-Signup Open Concept"?
+FocusOn AI is designed with an **Instant Open Workspace** concept. No login, no registration, and no authentication hurdles are required.
+- **Zero-Friction Access**: Open the app and you are immediately in the live ERP Dashboard preloaded with realistic commercial interior fit-out demo data (Bangalore/Mumbai corporate offices, BOQs, quotations, site reports, and accounts).
+- **Offline & Zero-Config Capable**: Works 100% out of the box using our built-in Open Workspace database engine (`localStorage` + in-memory fallback), even without Supabase environment variables!
+- **Real Backend Compatible**: If you connect a real Supabase database, run `/database/migrations/005_no_signup_open_concept.sql` to enable open workspace access on PostgreSQL without login requirements.
+- **Reset Demo Data**: Easily reset to the pristine default dataset anytime using the "Reset Demo Data" button in the header.
 
 ## Features
 

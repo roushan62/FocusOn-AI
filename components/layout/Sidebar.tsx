@@ -64,8 +64,12 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="border-t p-4">
-        <p className="text-xs text-gray-400">FocusOn AI v1.0</p>
+      <div className="border-t p-4 space-y-1">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>No-Signup Open ERP</span>
+        </div>
+        <p className="text-xs text-gray-400">FocusOn AI v1.0 • Instant Access</p>
       </div>
     </aside>
   );
