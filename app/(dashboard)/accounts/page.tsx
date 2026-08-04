@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Loading } from "@/components/ui/Loading";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDate, formatCurrency, generateNumber } from "@/lib/utils";
-import type { Invoice, Payment, Project, Client, Expense } from "@/lib/types";
+import type { Invoice, Project, Client, Expense } from "@/lib/types";
 
 export default function AccountsPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -23,6 +23,7 @@ export default function AccountsPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const [invoiceForm, setInvoiceForm] = useState({ project_id: "", client_id: "", subtotal: "0", notes: "", due_date: "" });
   const [expenseForm, setExpenseForm] = useState({ project_id: "", category: "", description: "", amount: "", expense_date: new Date().toISOString().split("T")[0] });
   const [paymentForm, setPaymentForm] = useState({ amount: "", payment_mode: "bank_transfer", payment_date: new Date().toISOString().split("T")[0], reference: "", notes: "" });
@@ -50,14 +51,24 @@ export default function AccountsPage() {
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
 
     const subtotal = parseFloat(invoiceForm.subtotal);
+    if (!Number.isFinite(subtotal) || subtotal < 0) {
+      setError("Enter a valid invoice subtotal.");
+      setSaving(false);
+      return;
+    }
     const gst = subtotal * 0.18;
     const { count } = await supabase.from("invoices").select("*", { count: "exact", head: true }).eq("company_id", user.id);
 
-    await supabase.from("invoices").insert({
+    const { error: insertError } = await supabase.from("invoices").insert({
       company_id: user.id,
       project_id: invoiceForm.project_id,
       client_id: invoiceForm.client_id,
@@ -69,6 +80,12 @@ export default function AccountsPage() {
       due_date: invoiceForm.due_date || null,
     });
 
+    if (insertError) {
+      setError(insertError.message || "Could not create the invoice.");
+      setSaving(false);
+      return;
+    }
+
     setSaving(false);
     setShowInvoiceForm(false);
     setInvoiceForm({ project_id: "", client_id: "", subtotal: "0", notes: "", due_date: "" });
@@ -79,11 +96,22 @@ export default function AccountsPage() {
     e.preventDefault();
     if (!selectedInvoice) return;
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
 
+    const balance = Math.max(0, Number(selectedInvoice.grand_total || 0) - Number(selectedInvoice.amount_paid || 0));
     const amount = parseFloat(paymentForm.amount);
-    await supabase.from("payments").insert({
+    if (!Number.isFinite(amount) || amount <= 0 || amount > balance) {
+      setError(`Payment must be greater than zero and no more than ${formatCurrency(balance)}.`);
+      setSaving(false);
+      return;
+    }
+    const { error: paymentError } = await supabase.from("payments").insert({
       company_id: user.id,
       invoice_id: selectedInvoice.id,
       amount,
@@ -92,10 +120,20 @@ export default function AccountsPage() {
       reference: paymentForm.reference || null,
       notes: paymentForm.notes || null,
     });
+    if (paymentError) {
+      setError(paymentError.message || "Could not record the payment.");
+      setSaving(false);
+      return;
+    }
 
-    const newPaid = (selectedInvoice.amount_paid || 0) + amount;
-    const newStatus = newPaid >= selectedInvoice.grand_total ? "paid" : "partially_paid";
-    await supabase.from("invoices").update({ amount_paid: newPaid, status: newStatus }).eq("id", selectedInvoice.id);
+    const newPaid = Number(selectedInvoice.amount_paid || 0) + amount;
+    const newStatus = newPaid >= Number(selectedInvoice.grand_total || 0) ? "paid" : "partially_paid";
+    const { error: invoiceError } = await supabase.from("invoices").update({ amount_paid: newPaid, status: newStatus }).eq("id", selectedInvoice.id);
+    if (invoiceError) {
+      setError(invoiceError.message || "Payment saved, but invoice status could not be updated.");
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setShowPaymentForm(false);
@@ -106,17 +144,34 @@ export default function AccountsPage() {
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
+    const amount = parseFloat(expenseForm.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Enter a valid expense amount.");
+      setSaving(false);
+      return;
+    }
 
-    await supabase.from("expenses").insert({
+    const { error: insertError } = await supabase.from("expenses").insert({
       company_id: user.id,
       project_id: expenseForm.project_id,
       category: expenseForm.category,
       description: expenseForm.description,
-      amount: parseFloat(expenseForm.amount),
+      amount,
       expense_date: expenseForm.expense_date,
     });
+
+    if (insertError) {
+      setError(insertError.message || "Could not add the expense.");
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setShowExpenseForm(false);
@@ -124,8 +179,8 @@ export default function AccountsPage() {
     fetchData();
   };
 
-  const totalOutstanding = invoices.reduce((s, i) => s + (i.grand_total - (i.amount_paid || 0)), 0);
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalOutstanding = invoices.reduce((s, i) => s + Math.max(0, Number(i.grand_total || 0) - Number(i.amount_paid || 0)), 0);
+  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
 
   if (loading) return <Loading size="lg" />;
 
@@ -142,7 +197,9 @@ export default function AccountsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card><p className="text-sm text-gray-500">Total Outstanding</p><p className="text-2xl font-bold text-red-600">{formatCurrency(totalOutstanding)}</p></Card>
         <Card><p className="text-sm text-gray-500">Total Expenses</p><p className="text-2xl font-bold text-orange-600">{formatCurrency(totalExpenses)}</p></Card>
         <Card><p className="text-sm text-gray-500">Total Invoices</p><p className="text-2xl font-bold">{invoices.length}</p></Card>

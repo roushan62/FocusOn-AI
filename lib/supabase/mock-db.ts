@@ -929,11 +929,39 @@ export class LocalWorkspaceDB {
     return arr as unknown as Record<string, unknown>[];
   }
 
+  private withDerivedFields(tableName: keyof MockDatabaseSchema, row: Record<string, unknown>): Record<string, unknown> {
+    const next = { ...row };
+    if (tableName === "boq_line_items" || tableName === "po_line_items") {
+      const quantity = Number(next.quantity || 0);
+      const rate = Number(next.rate || 0);
+      next.amount = quantity * rate;
+      if (tableName === "boq_line_items" && next.labour_amount == null && next.labour_rate != null) {
+        next.labour_amount = quantity * Number(next.labour_rate || 0);
+      }
+    }
+    if (tableName === "inventory") {
+      next.quantity_available = Number(next.quantity_received || 0) - Number(next.quantity_consumed || 0);
+      next.last_updated = next.last_updated || new Date().toISOString();
+    }
+    return next;
+  }
+
   public insert(tableName: keyof MockDatabaseSchema, rows: Record<string, unknown>[]): Record<string, unknown>[] {
     const arr = (this.data[tableName] || []) as unknown as Record<string, unknown>[];
-    const newRows = rows.map((r) => ({
+    const defaults: Partial<Record<keyof MockDatabaseSchema, Record<string, unknown>>> = {
+      boqs: { version: 1, status: "draft" },
+      quotations: { revision: 1, status: "draft", discount_percent: 0, discount_amount: 0, gst_percent: 18, gst_amount: 0, profit_margin_percent: 15 },
+      purchase_orders: { status: "draft", subtotal: 0, gst_amount: 0, grand_total: 0 },
+      invoices: { status: "draft", amount_paid: 0 },
+      vendors: { status: "active", rating: 3 },
+      clients: { status: "active" },
+      site_reports: { photos: [] },
+    };
+    const newRows = rows.map((r) => this.withDerivedFields(tableName, {
+      ...(defaults[tableName] || {}),
       id: r.id || crypto.randomUUID(),
-      company_id: r.company_id || DEFAULT_COMPANY_ID,
+      // Line items do not have a company_id column in PostgreSQL.
+      ...(tableName === "boq_line_items" || tableName === "po_line_items" ? {} : { company_id: r.company_id || DEFAULT_COMPANY_ID }),
       created_at: r.created_at || new Date().toISOString(),
       updated_at: r.updated_at || new Date().toISOString(),
       ...r,
@@ -952,11 +980,11 @@ export class LocalWorkspaceDB {
     const updatedRows: Record<string, unknown>[] = [];
     const newArr = arr.map((item) => {
       if (filterFn(item)) {
-        const up = {
+        const up = this.withDerivedFields(tableName, {
           ...item,
           ...updates,
           updated_at: new Date().toISOString(),
-        };
+        });
         updatedRows.push(up);
         return up;
       }

@@ -9,7 +9,6 @@ import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Loading } from "@/components/ui/Loading";
 import { formatDate } from "@/lib/utils";
-import Link from "next/link";
 import type { SiteReport, Project } from "@/lib/types";
 
 export default function SiteReportsPage() {
@@ -27,6 +26,7 @@ export default function SiteReportsPage() {
     delays: "",
     weather: "",
   });
+  const [error, setError] = useState("");
 
   const fetchReports = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -54,10 +54,15 @@ export default function SiteReportsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setError("Workspace session unavailable. Please refresh and try again.");
+      setSaving(false);
+      return;
+    }
 
-    await supabase.from("site_reports").insert({
+    const { error: insertError } = await supabase.from("site_reports").insert({
       company_id: user.id,
       project_id: form.project_id,
       report_date: form.report_date,
@@ -68,6 +73,12 @@ export default function SiteReportsPage() {
       weather: form.weather || null,
       created_by: user.id,
     });
+
+    if (insertError) {
+      setError(insertError.message || "Could not save the daily report.");
+      setSaving(false);
+      return;
+    }
 
     setSaving(false);
     setShowForm(false);
@@ -86,6 +97,8 @@ export default function SiteReportsPage() {
         </div>
         <Button onClick={() => setShowForm(true)}>+ Daily Report</Button>
       </div>
+
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       {reports.length === 0 ? (
         <Card><div className="py-12 text-center"><p className="text-gray-500">No site reports yet.</p></div></Card>
@@ -117,7 +130,7 @@ export default function SiteReportsPage() {
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Daily Progress Report" size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <Select label="Project" value={form.project_id} onChange={(e) => setForm({ ...form, project_id: e.target.value })} options={projects.map((p) => ({ value: p.id, label: p.name }))} required />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input label="Date" type="date" value={form.report_date} onChange={(e) => setForm({ ...form, report_date: e.target.value })} required />
             <Input label="Labour Count" type="number" value={form.labour_count} onChange={(e) => setForm({ ...form, labour_count: e.target.value })} />
           </div>

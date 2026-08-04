@@ -1,62 +1,103 @@
-# FocusOn AI — AI Interior Fit-Out ERP (No-Signup Open Concept)
+# FocusOn AI — AI Interior Fit-Out ERP
 
-A production-grade **AI Interior Fit-Out ERP** (Construction Copilot) for commercial interior fit-out companies. Built with Next.js 16+, TypeScript, Tailwind CSS, and AI Copilot capabilities.
+FocusOn AI is a fast, open-workspace **Construction Copilot** for commercial interior fit-out teams. It brings estimating, procurement, site execution, documents, accounts and AI assistance into one Vercel-ready Next.js app.
 
-## ✨ Why "No-Signup Open Concept"?
-FocusOn AI is designed with an **Instant Open Workspace** concept. No login, no registration, and no authentication hurdles are required.
-- **Zero-Friction Access**: Open the app and you are immediately in the live ERP Dashboard preloaded with realistic commercial interior fit-out demo data (Bangalore/Mumbai corporate offices, BOQs, quotations, site reports, and accounts).
-- **Offline & Zero-Config Capable**: Works 100% out of the box using our built-in Open Workspace database engine (`localStorage` + in-memory fallback), even without Supabase environment variables!
-- **Real Backend Compatible**: If you connect a real Supabase database, run `/database/migrations/005_no_signup_open_concept.sql` to enable open workspace access on PostgreSQL without login requirements.
-- **Reset Demo Data**: Easily reset to the pristine default dataset anytime using the "Reset Demo Data" button in the header.
+## What works
 
-## Features
+- **AI Construction Copilot** — streaming BOQ, quotation, site-plan and email answers through `/api/ai/chat`
+- **BOQ & estimating** — material + labour line items, AI-reviewed draft import, versions and INR totals
+- **Quotations** — GST, discount, margin calculation, approval status and print/PDF workflow
+- **Projects & clients** — fit-out scope, location, area, budget and delivery dates
+- **Purchase orders** — vendor workflow, line items, GST totals and draft → approval → issue states
+- **Vendors & materials** — reusable supplier and material database
+- **Inventory** — received/consumed/available quantities with low-stock alerts
+- **Site DPR** — daily progress, labour count, issues, delays and weather notes
+- **Documents** — Supabase Storage uploads for drawings, BOQs, contracts and invoices
+- **Accounts** — invoices, receipts/payments, outstanding balances and expenses
+- **Reports** — project revenue, expenses, outstanding receivables and profitability
+- **Open workspace** — demo data works immediately with localStorage; Supabase can be connected without adding a sign-up wall (the Reset demo control is shown only for local demo data)
+- **Responsive shell** — mobile navigation, keyboard-friendly modals and low-overhead client data fetching
 
-- 🤖 **AI Copilot** — natural-language BOQ, quotation, and email generation
-- 📋 **BOQ Generator** — structured bill of quantities with material & labour estimation
-- 📄 **Quotation Generator** — professional PDF/DOCX/Excel exports with GST & margins
-- 📊 **Purchase Orders** — vendor management with approval workflow
-- 📦 **Inventory Management** — stock tracking, AI-powered alerts
-- 🏗️ **Site Management** — daily progress reports, photo uploads, attendance
-- 👁️ **AI Vision** — site photo & drawing analysis
-- 💰 **Accounts** — invoices, payments, outstanding tracker, profit per project
-- 📈 **Analytics Dashboard** — live KPIs for owners
+## Stack
 
-## Tech Stack
+- Next.js 16 App Router + TypeScript + Tailwind CSS 4
+- Supabase PostgreSQL / Storage (optional; local open-workspace adapter is included)
+- Groq SDK for server-side AI calls
+- Vercel-compatible Node.js route handler with SSE streaming
 
-- **Framework:** Next.js 16 (App Router), TypeScript, Tailwind CSS
-- **Hosting:** Vercel (auto-deploy from GitHub)
-- **Database/Auth/Storage:** Supabase (PostgreSQL, RLS, Auth, Storage)
-- **AI:** Groq API (`llama-3.3-70b-versatile` + vision models)
+## Vercel setup
 
-## Environment Variables (Set in Vercel Dashboard)
+1. Import the repository into Vercel.
+2. Add these variables in **Project → Settings → Environment Variables** for Preview and Production:
 
-> ⚠️ **Important:** This app uses Vercel environment variables — there is no local `.env` file in production.  
-> Go to your Vercel project → **Settings → Environment Variables** and add:
+   | Variable | Required | Purpose |
+   |---|---:|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Optional | Supabase project URL |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional | Public Supabase key |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Optional | Server-only admin integrations; never expose it |
+   | `GROQ_API_KEY` | Recommended | Enables live Groq responses; the app has a local fallback without it |
+   | `GROQ_MODEL` | Optional | Defaults to `llama-3.3-70b-versatile` |
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (secret — never expose) |
-| `GROQ_API_KEY` | Groq API key for AI features |
+3. Redeploy after changing environment variables. Never prefix a secret with `NEXT_PUBLIC_`.
+4. Check the deployment with:
 
-## Database Setup
+   ```text
+   https://YOUR-DOMAIN.vercel.app/api/ai/chat
+   ```
 
-Run the SQL migration files in `/database/migrations/` in your Supabase SQL Editor, in numerical order.
+   A healthy response reports `ok: true` and the active provider (`groq` or `fallback`). The chat UI requests SSE streaming automatically, so the first tokens appear without waiting for the complete answer.
 
-## CI/CD
+### Supabase database and storage
 
-- Every push to `main` auto-deploys to Vercel production
-- Every PR gets a unique preview URL
-- GitHub Actions runs `lint` + `build` on every push/PR
+Run the SQL migrations in `database/migrations/` in numerical order:
 
-## Getting Started (Local Dev)
+```text
+001_core_tables.sql
+002_boq_quotation.sql
+003_purchase_inventory.sql
+004_site_accounts_docs_ai.sql
+005_no_signup_open_concept.sql
+006_documents_storage.sql
+```
+
+Migration 006 creates the public `documents` Storage bucket and its open-workspace policies. If you do not connect Supabase, the app uses the built-in localStorage database and mock storage automatically.
+
+> The no-signup mode is intentionally an open demo workspace. Use authenticated Supabase policies and a tenant-aware company model before using it with confidential production data.
+
+## Local development
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in keys
+cp .env.example .env.local   # optional; fill in real keys when available
 npm run dev
 ```
+
+Quality checks:
+
+```bash
+npm run lint
+npm run build
+```
+
+## API contract
+
+`POST /api/ai/chat`
+
+```json
+{
+  "stream": true,
+  "messages": [
+    { "role": "system", "content": "..." },
+    { "role": "user", "content": "Generate a BOQ for 5000 sqft" }
+  ]
+}
+```
+
+- `stream: true` returns Server-Sent Events: `{ "delta": "..." }` followed by `[DONE]`.
+- `stream: false` returns `{ "response": "...", "provider": "groq" }`.
+- `GET /api/ai/chat` is a safe health check and never returns the API key.
+- Requests are validated, bounded to a practical conversation size and guarded against accidental request loops.
+- If Groq is missing or temporarily unavailable, a useful local interior-fit-out fallback keeps the feature usable.
 
 ## License
 

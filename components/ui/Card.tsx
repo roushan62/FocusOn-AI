@@ -8,27 +8,19 @@ interface CardProps {
   actions?: React.ReactNode;
 }
 
-export function Card({
-  title,
-  subtitle,
-  children,
-  className = "",
-  actions,
-}: CardProps) {
+export function Card({ title, subtitle, children, className = "", actions }: CardProps) {
   return (
-    <div className={`rounded-xl border border-gray-200 bg-white shadow-sm ${className}`}>
+    <section className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>
       {(title || actions) && (
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            {subtitle && (
-              <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>
-            )}
+        <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="min-w-0">
+            {title && <h2 className="truncate text-base font-bold tracking-tight text-slate-950">{title}</h2>}
+            {subtitle && <p className="mt-0.5 text-xs leading-5 text-slate-500">{subtitle}</p>}
           </div>
-          {actions && <div className="flex gap-2">{actions}</div>}
+          {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
         </div>
       )}
-      <div className="p-6">{children}</div>
-    </div>
+      <div className="p-5 sm:p-6">{children}</div>
+    </section>
   );
 }

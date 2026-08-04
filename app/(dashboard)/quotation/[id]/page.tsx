@@ -120,7 +120,7 @@ export default function QuotationDetailPage() {
       {/* Project Info */}
       {project && (
         <Card>
-          <div className="grid grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
             <div><span className="text-gray-500">Project:</span> <span className="font-medium">{project.name}</span></div>
             {project.location && <div><span className="text-gray-500">Location:</span> <span className="font-medium">{project.location}</span></div>}
             {project.area_sqft && <div><span className="text-gray-500">Area:</span> <span className="font-medium">{project.area_sqft} sq ft</span></div>}

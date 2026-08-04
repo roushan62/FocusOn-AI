@@ -82,6 +82,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Company Settings</h1>
         <p className="text-sm text-gray-500">Manage your company profile and defaults</p>
+        {company?.updated_at && <p className="mt-1 text-xs text-slate-400">Last synced {new Date(company.updated_at).toLocaleString("en-IN")}</p>}
       </div>
 
       <Card title="Company Profile">
@@ -93,7 +94,7 @@ export default function SettingsPage() {
             required
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label="GST Number"
               value={form.gst_number}
@@ -107,7 +108,7 @@ export default function SettingsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label="Email"
               type="email"
