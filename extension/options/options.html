@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>FOI-MeetAI — Setup &amp; Provider Keys</title>
+  <style>
+    :root { --navy:#1A1F5C; --gold:#C9A227; --ink:#1e293b; --muted:#64748b; }
+    * { box-sizing:border-box; }
+    body { max-width: 860px; margin: 0 auto; padding: 24px 20px 80px; font-family: Arial, Helvetica, sans-serif; color: var(--ink); background:#f8fafc; }
+    h1 { font-size: 22px; margin: 0 0 4px; color: var(--navy); }
+    h2 { font-size: 15px; margin: 0 0 2px; color: var(--navy); }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; line-height:1.5; }
+    section { background:#fff; border:1px solid #e2e8f0; border-radius:14px; padding:18px 20px; margin-bottom:18px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    label { display:block; font-size: 11px; font-weight:bold; color: var(--muted); text-transform: uppercase; letter-spacing:.6px; margin-bottom:4px; }
+    input, select { width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; font-family:inherit; }
+    input:focus { outline:2px solid var(--gold); border-color: var(--gold); }
+    button { cursor:pointer; border:none; border-radius:8px; font-weight:bold; font-size:13px; padding:8px 14px; background: var(--navy); color:#fff; font-family:inherit; }
+    button.ghost { background:#e2e8f0; color:var(--ink); }
+    .keyrow { display:grid; grid-template-columns: 220px 1fr auto auto; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid #f1f5f9; }
+    .keyrow:last-child { border-bottom:none; }
+    .keyrow .name { font-weight:bold; font-size:13px; }
+    .keyrow .meta { font-size:11px; color:var(--muted); }
+    .result { font-size:12px; min-width: 150px; }
+    .ok { color:#059669; } .bad { color:#dc2626; } .warn { color:#d97706; }
+    .pill { display:inline-block; font-size:10px; font-weight:bold; padding:2px 8px; border-radius:99px; margin-left:6px; }
+    .pill.free { background:#ecfdf5; color:#065f46; } .pill.paid { background:#eff6ff; color:#1d4ed8; }
+    .savebar { position:sticky; bottom:0; background:#f8fafcee; backdrop-filter: blur(6px); padding:14px 0; text-align:right; border-top:1px solid #e2e8f0; }
+    #toast { position:fixed; right:20px; bottom:20px; background:var(--navy); color:#fff; padding:12px 18px; border-radius:10px; font-size:13px; display:none; }
+    .steps { counter-reset: step; padding-left:0; }
+    .steps li { list-style:none; position:relative; padding-left:34px; margin-bottom:10px; font-size:13px; line-height:1.6; }
+    .steps li::before { counter-increment: step; content: counter(step); position:absolute; left:0; top:1px; width:22px; height:22px; border-radius:50%; background:var(--gold); color:#fff; font-size:12px; font-weight:bold; display:flex; align-items:center; justify-content:center; }
+    code { background:#f1f5f9; padding:1px 6px; border-radius:6px; font-size:12px; }
+    @media (max-width: 680px) { .keyrow { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>FOI-MeetAI — Setup Wizard</h1>
+  <p class="sub">One-time setup for FocusOn Interiors. No code, no terminal — paste keys, test, save.
+  The system runs with any ONE working provider; every extra key adds reliability through the fallback chain.</p>
+
+  <section>
+    <h2>Step 1 — Backend connection</h2>
+    <p class="sub">URL of the deployed FocusOn AI backend (the Vercel app in this repository).</p>
+    <div class="grid">
+      <div><label>Backend URL</label><input id="backendUrl" placeholder="https://focuson-ai.vercel.app" /></div>
+      <div><label>Shared API token (optional)</label><input id="apiToken" type="password" placeholder="Only if MEETAI_API_TOKEN is set on the backend" /></div>
+    </div>
+    <div style="margin-top:10px; display:flex; gap:10px; align-items:center">
+      <button class="ghost" id="testBackend">Test backend</button>
+      <span class="result" id="backendResult"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Step 2 — Company profile (auto-fills every MOM header)</h2>
+    <div class="grid">
+      <div><label>Company name</label><input id="companyName" /></div>
+      <div><label>Prepared by (your name)</label><input id="preparedBy" placeholder="e.g. Roushan — Project Coordinator" /></div>
+      <div><label>Logo image URL (optional, for Sheet/PDF)</label><input id="logoUrl" placeholder="https://…/logo.png" /></div>
+      <div><label>Default Google Sheet ID (optional)</label><input id="defaultSpreadsheetId" placeholder="Leave empty to auto-create “FocusOn MOM Log”" /></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Step 3 — Speech-to-Text API keys <span class="pill free">free tiers available</span></h2>
+    <p class="sub">Fallback chain: Groq Whisper → Deepgram → AssemblyAI → OpenAI Whisper → Google STT → local whisper.cpp. Any one key works.</p>
+    <div id="sttKeys"></div>
+  </section>
+
+  <section>
+    <h2>Step 4 — LLM API keys (MOM generation + verification)</h2>
+    <p class="sub">Fallback chain: Gemini → Groq → OpenRouter → Claude → GPT-4o → DeepSeek → Ollama (local). Verification prefers a different model family automatically.</p>
+    <div id="llmKeys"></div>
+  </section>
+
+  <section>
+    <h2>Step 5 — Meeting defaults</h2>
+    <div class="grid">
+      <div><label>Language hints (comma-separated)</label><input id="languageHints" placeholder="hi,en" /></div>
+      <div><label>Default project name</label><input id="defaultProjectName" /></div>
+      <div>
+        <label>Live analysis frequency</label>
+        <select id="analyzeEverySeconds">
+          <option value="60">Every 1 minute</option>
+          <option value="120" selected>Every 2 minutes (recommended)</option>
+          <option value="300">Every 5 minutes</option>
+        </select>
+      </div>
+      <div>
+        <label>Screen tagging</label>
+        <select id="screenshotEverySeconds">
+          <option value="0">Off</option>
+          <option value="45" selected>Every ~45 seconds</option>
+          <option value="90">Every ~90 seconds</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Google sign-in (Sheets + Gmail draft)</h2>
+    <ol class="steps">
+      <li>Create one OAuth client (Chrome Extension type) in Google Cloud Console using this extension ID, and paste it into <code>manifest.json → oauth2.client_id</code>. Detailed 5-minute guide: <code>docs/SETUP.md</code>.</li>
+      <li>The first time you stop a meeting, Chrome asks you to sign in — that's the only permission prompt you'll ever see.</li>
+      <li>Sheets scope writes your MOM; Gmail scope only ever creates <strong>drafts</strong> (nothing is ever auto-sent).</li>
+    </ol>
+  </section>
+
+  <div class="savebar">
+    <button id="saveAll">💾 Save all settings</button>
+  </div>
+  <div id="toast"></div>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
